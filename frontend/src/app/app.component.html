@@ -1,0 +1,391 @@
+<div class="app-shell">
+  <aside class="sidebar">
+    <a class="brand" href="/" aria-label="RupeeTrack home">
+      <span class="brand-mark">₹</span>
+      <span>RupeeTrack<small>EVERY RUPEE COUNTS</small></span>
+    </a>
+    <div class="side-label">WORKSPACE</div>
+    <div class="nav-item active"><span>▦</span> Overview</div>
+    <div class="nav-item"><span>↗</span> Expenses</div>
+    <div class="nav-item"><span>◷</span> Monthly reports</div>
+    <div class="sidebar-bottom">
+      <div class="avatar">M</div>
+      <div><strong>My wallet</strong><small>Personal account</small></div>
+      <span class="online-dot"></span>
+    </div>
+  </aside>
+
+  <main class="main-content">
+    <header class="topbar">
+      <div>
+        <p class="eyebrow">YOUR MONEY, IN FOCUS</p>
+        <h1>Overview <span class="wave">✳</span></h1>
+        <p class="subheading">A clearer picture of where every rupee goes.</p>
+      </div>
+      <label class="month-picker">Month
+        <input type="month" [(ngModel)]="selectedMonth">
+      </label>
+    </header>
+
+    <div class="notice error" *ngIf="error">{{ error }}</div>
+    <div class="notice success" *ngIf="success">{{ success }}</div>
+
+    <section class="stats-grid">
+      <article class="stat-card dark-card">
+        <div class="stat-top"><span>Total spent</span><span class="stat-icon">↗</span></div>
+        <div class="stat-value">{{ totalSpent | currency:'INR':'symbol':'1.2-2' }}</div>
+        <div class="stat-foot"><span class="status-dot"></span> Spending in selected month</div>
+        <div class="card-decoration"></div>
+      </article>
+      <article class="stat-card">
+        <div class="stat-top"><span>Monthly budget</span><span class="stat-icon purple">◎</span></div>
+        <div class="stat-value">{{ monthlyBudget | currency:'INR':'symbol':'1.0-0' }}</div>
+        <div class="progress-track">
+          <div class="progress-fill" [style.width.%]="budgetPercent"></div>
+        </div>
+        <div class="stat-foot">{{ budgetPercent | number:'1.0-0' }}% of budget used</div>
+
+        <div class="budget-editor">
+          <label class="field-label">
+            Change monthly budget (₹)
+            <input type="number" min="1" step="1" [(ngModel)]="budgetDraft" [ngModelOptions]="{standalone: true}"
+              aria-label="New monthly budget">
+          </label>
+
+          <button type="button" class="primary-button" [disabled]="budgetSaving" (click)="saveBudget()">
+            {{ budgetSaving ? 'Saving...' : 'Save budget' }}
+          </button>
+
+          <p *ngIf="budgetMessage" class="notice success">
+            {{ budgetMessage }}
+          </p>
+
+          <p *ngIf="budgetError" class="notice error">
+            {{ budgetError }}
+          </p>
+        </div>
+
+      </article>
+      <article class="stat-card">
+        <div class="stat-top"><span>Budget remaining</span><span class="stat-icon green">⌁</span></div>
+        <div class="stat-value" [class.negative]="remainingBudget < 0">{{ remainingBudget |
+          currency:'INR':'symbol':'1.2-2' }}</div>
+        <div class="stat-foot">{{ remainingBudget < 0 ? 'You are over budget' : 'Keep your spending on track' }}</div>
+      </article>
+      <article class="stat-card">
+        <div class="stat-top"><span>Transactions</span><span class="stat-icon orange">▤</span></div>
+        <div class="stat-value">{{ monthExpenses.length }}</div>
+        <div class="stat-foot">Recorded this month</div>
+      </article>
+    </section>
+
+    <section class="content-grid">
+      <article class="panel form-panel">
+        <div class="panel-heading">
+          <div>
+            <p class="eyebrow">KEEP IT UP TO DATE</p>
+            <h2>{{ editingId === null ? 'Add an expense' : 'Edit expense' }}</h2>
+          </div>
+          <span class="heading-icon">＋</span>
+        </div>
+        <form (ngSubmit)="saveExpense()" #expenseForm="ngForm">
+          <label class="field-label">What did you spend on?
+            <input name="description" [(ngModel)]="form.description" required maxlength="120"
+              placeholder="e.g. Lunch with friends">
+          </label>
+          <div class="field-row">
+            <label class="field-label">Amount (₹)
+              <div class="amount-input"><span>₹</span><input type="number" name="amount" [(ngModel)]="form.amount"
+                  min="0.01" step="0.01" required placeholder="0.00"></div>
+            </label>
+            <label class="field-label">Date
+              <input type="date" name="expenseDate" [(ngModel)]="form.expenseDate" required>
+            </label>
+          </div>
+          <div class="field-row">
+            <label class="field-label">Category
+              <select name="category" [(ngModel)]="form.category" required>
+                <option *ngFor="let category of categories" [value]="category">{{ category }}</option>
+              </select>
+            </label>
+            <label class="field-label">Paid using
+              <select name="paymentMethod" [(ngModel)]="form.paymentMethod" required>
+                <option *ngFor="let method of paymentMethods" [value]="method">{{ method }}</option>
+              </select>
+            </label>
+          </div>
+          <label class="field-label">Notes <span class="optional">(optional)</span>
+            <textarea name="notes" [(ngModel)]="form.notes" rows="2" maxlength="500"
+              placeholder="Add a little detail..."></textarea>
+          </label>
+          <div class="form-actions">
+            <button class="primary-button" type="submit" [disabled]="expenseForm.invalid || loading">
+              {{ editingId === null ? '＋ Save expense' : 'Save changes' }}
+            </button>
+            <button class="text-button" type="button" *ngIf="editingId !== null" (click)="cancelEdit()">Cancel</button>
+          </div>
+        </form>
+      </article>
+
+      <article class="panel category-panel">
+        <div class="panel-heading">
+          <div>
+            <p class="eyebrow">YOUR SPENDING BREAKDOWN</p>
+            <h2>By category</h2>
+          </div>
+          <span class="heading-icon purple-bg">◔</span>
+        </div>
+        <div class="empty-state compact" *ngIf="categoryTotals.length === 0">
+          <div class="empty-illustration">◌</div><strong>No spending yet</strong>
+          <p>Add your first expense to see the breakdown.</p>
+        </div>
+        <div class="category-list" *ngIf="categoryTotals.length > 0">
+          <div class="category-row" *ngFor="let item of categoryTotals">
+            <div class="category-line"><span>{{ item.name }}</span><strong>{{ item.amount |
+                currency:'INR':'symbol':'1.2-2' }}</strong></div>
+            <div class="category-track">
+              <div class="category-fill" [style.width.%]="item.percent"></div>
+            </div>
+          </div>
+        </div>
+        <div class="tip-box"><span>✦</span>
+          <p><strong>Small expenses add up.</strong><br>Record purchases as they happen to keep your totals accurate.
+          </p>
+        </div>
+      </article>
+    </section>
+
+    <section class="panel transactions-panel">
+      <div class="transactions-heading">
+        <div>
+          <p class="eyebrow">YOUR MONEY TRAIL</p>
+          <h2>Recent transactions <span class="count-pill">{{ filteredExpenses.length }}</span></h2>
+        </div>
+        <button class="export-button" type="button" (click)="exportCsv()">↓ Export CSV</button>
+      </div>
+      <div class="filters">
+        <label class="search-box"><span>⌕</span><input type="search" [(ngModel)]="searchText"
+            placeholder="Search expenses..."></label>
+        <select aria-label="Filter by category" [(ngModel)]="selectedCategory">
+          <option>All</option>
+          <option *ngFor="let category of categories">{{ category }}</option>
+        </select>
+      </div>
+      <div class="loading-state" *ngIf="loading">Loading your expenses...</div>
+      <div class="table-wrap" *ngIf="!loading && filteredExpenses.length > 0">
+        <table>
+          <thead>
+            <tr>
+              <th>EXPENSE</th>
+              <th>CATEGORY</th>
+              <th>DATE</th>
+              <th>PAYMENT</th>
+              <th class="amount-col">AMOUNT</th>
+              <th>ACTIONS</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let expense of filteredExpenses; trackBy: trackById">
+              <td>
+                <div class="expense-name"><span class="expense-avatar">{{ expense.description.charAt(0).toUpperCase()
+                    }}</span><span><strong>{{ expense.description }}</strong><small *ngIf="expense.notes">{{
+                      expense.notes }}</small></span></div>
+              </td>
+              <td><span class="category-pill">{{ expense.category }}</span></td>
+              <td>{{ expense.expenseDate | date:'dd MMM yyyy' }}</td>
+              <td>{{ expense.paymentMethod }}</td>
+              <td class="amount-col expense-amount">−{{ expense.amount | currency:'INR':'symbol':'1.2-2' }}</td>
+              <td>
+                <div class="action-buttons"><button type="button" title="Edit expense"
+                    (click)="editExpense(expense)">✎</button><button type="button" title="Delete expense"
+                    (click)="deleteExpense(expense)">×</button></div>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="empty-state" *ngIf="!loading && filteredExpenses.length === 0">
+        <div class="empty-illustration">₹</div>
+        <strong>No expenses found</strong>
+        <p>Try another filter or add an expense using the form above.</p>
+      </div>
+      <div class="table-footer" *ngIf="filteredExpenses.length > 0"><span>Showing {{ filteredExpenses.length }}
+          transaction(s)</span><strong>Total: {{ filteredExpenses.length }} records</strong></div>
+    </section>
+    
+
+<!-- Floating AI Chatbot -->
+<div class="ai-chat-widget">
+
+  <!-- Chat Window -->
+  <section
+    class="ai-chat-window"
+    *ngIf="isAiChatOpen"
+    aria-label="RupeeTrack AI chatbot"
+  >
+    <header class="ai-chat-header">
+      <div class="ai-chat-title">
+        <div class="ai-avatar">AI</div>
+        <div>
+          <h3>RupeeTrack AI</h3>
+          <span>Ask about your expenses</span>
+        </div>
+      </div>
+
+      <button
+        type="button"
+        class="ai-close-button"
+        aria-label="Close chat"
+        (click)="isAiChatOpen = false"
+      >
+        &times;
+      </button>
+    </header>
+
+    <div class="ai-chat-messages" aria-live="polite">
+
+      <!-- Welcome and Suggestions -->
+      <div *ngIf="aiMessages.length === 0" class="ai-welcome">
+        <div class="ai-avatar welcome-avatar">AI</div>
+        <h4>Hi! How can I help?</h4>
+        <p>Ask me about your spending, expenses, or budget.</p>
+
+        <div class="ai-suggestions">
+          <p class="ai-suggestions-title">Monthly overview</p>
+
+          <button
+            type="button"
+            class="ai-suggestion"
+            (click)="askAiSuggestion('How much did I spend this month?')"
+          >
+            <span class="suggestion-icon">₹</span>
+            <span>Monthly spending</span>
+          </button>
+
+          <button
+            type="button"
+            class="ai-suggestion"
+            (click)="askAiSuggestion('How much of my monthly budget is remaining?')"
+          >
+            <span class="suggestion-icon">◉</span>
+            <span>Remaining budget</span>
+          </button>
+
+          <p class="ai-suggestions-title">Spending by date</p>
+
+          <button
+            type="button"
+            class="ai-suggestion"
+            (click)="askAiSuggestion('How much did I spend today?')"
+          >
+            <span class="suggestion-icon">📅</span>
+            <span>Today's spending</span>
+          </button>
+
+          <button
+            type="button"
+            class="ai-suggestion"
+            (click)="askAiSuggestion('How much did I spend yesterday?')"
+          >
+            <span class="suggestion-icon">◷</span>
+            <span>Yesterday's spending</span>
+          </button>
+
+          <button
+            type="button"
+            class="ai-suggestion"
+            (click)="askAiSuggestion('What did I spend this week?')"
+          >
+            <span class="suggestion-icon">▦</span>
+            <span>This week</span>
+          </button>
+
+          <button
+            type="button"
+            class="ai-suggestion"
+            (click)="askAiSuggestion('Show my expenses from the last 7 days')"
+          >
+            <span class="suggestion-icon">↗</span>
+            <span>Last 7 days</span>
+          </button>
+
+          <p class="ai-suggestions-title">Category spending</p>
+
+          <button
+            type="button"
+            class="ai-suggestion"
+            (click)="askAiSuggestion('How much did I spend on Food?')"
+          >
+            <span class="suggestion-icon">◈</span>
+            <span>Food expenses</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Chat Messages -->
+      <div
+        *ngFor="let message of aiMessages"
+        class="ai-message"
+        [class.user-message]="message.role === 'user'"
+        [class.assistant-message]="message.role === 'assistant'"
+      >
+        <strong>
+          {{ message.role === 'user' ? 'You' : 'RupeeTrack AI' }}
+        </strong>
+        <p>{{ message.text }}</p>
+      </div>
+
+      <!-- Loading Indicator -->
+      <p *ngIf="aiLoading" class="ai-loading">
+        RupeeTrack AI is thinking...
+      </p>
+    </div>
+
+    <!-- Error Message -->
+    <p *ngIf="aiError" class="ai-error" role="alert">
+      {{ aiError }}
+    </p>
+
+    <!-- Chat Input -->
+    <form class="ai-chat-form" (ngSubmit)="sendAiMessage()">
+      <input
+        type="text"
+        name="aiMessage"
+        [(ngModel)]="aiMessage"
+        placeholder="Ask a question..."
+        maxlength="1000"
+        [disabled]="aiLoading"
+        autocomplete="off"
+        required
+      />
+
+      <button
+        type="submit"
+        class="ai-send-button"
+        [disabled]="aiLoading || !aiMessage.trim()"
+        aria-label="Send message"
+      >
+        &#10148;
+      </button>
+    </form>
+  </section>
+
+  <!-- Floating Button -->
+  <button
+    type="button"
+    class="ai-floating-button"
+    (click)="isAiChatOpen = !isAiChatOpen"
+    [attr.aria-label]="isAiChatOpen ? 'Close AI chat' : 'Open AI chat'"
+    [attr.aria-expanded]="isAiChatOpen"
+  >
+    <span *ngIf="!isAiChatOpen" class="ai-chat-icon">&#9993;</span>
+    <span *ngIf="isAiChatOpen">&times;</span>
+    <span *ngIf="!isAiChatOpen" class="ai-button-label">Ask AI</span>
+  </button>
+
+</div>
+
+
+    <footer>Made for mindful money habits <span>·</span> RupeeTrack <span>·</span> All amounts in INR</footer>
+  </main>
+</div>

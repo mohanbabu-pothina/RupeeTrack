@@ -1,0 +1,29 @@
+# Angular
+**/node_modules/
+**/dist/
+**/.angular/
+**/coverage/
+
+# Java / Spring Boot
+**/target/
+*.class
+*.log
+
+# IDE and OS files
+.idea/
+.vscode/
+*.iml
+.DS_Store
+Thumbs.db
+
+# Secrets and local environment files
+.env
+.env.*
+!.env.example
+**/application-local.properties
+**/application-secrets.properties
+
+# Database backups
+*.sql
+*.dump
+*.backup
