@@ -2,28 +2,29 @@
 **/node_modules/
 **/dist/
 **/.angular/
-**/coverage/
 
-# Java / Spring Boot
+# Java
 **/target/
-*.class
-*.log
 
-# IDE and OS files
-.idea/
-.vscode/
-*.iml
-.DS_Store
-Thumbs.db
+# Local Spring Boot configuration
+**/application.properties
+**/application-local.properties
+**/application-secrets.properties
 
-# Secrets and local environment files
+# Environment secrets
 .env
 .env.*
 !.env.example
-**/application-local.properties
-**/application-secrets.properties
 
 # Database backups
 *.sql
 *.dump
 *.backup
+
+# IntelliJ IDEA
+.idea/
+**/.idea/
+*.iml
+
+# VS Code workspace settings (optional)
+.vscode/
